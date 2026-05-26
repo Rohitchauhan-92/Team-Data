@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Live Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+<h1>My Live Dashboard</h1>
+
+<p>Total Records: <span id="total"></span></p>
+
+<canvas id="chart"></canvas>
+
+<script>
+
+const API_URL =
+"https://opensheet.elk.sh/1g_4SBQ5vlZAVpCf229v6hl4dhiHrK9mWu5M0ld97K5E/Sheet1";
+
+async function loadData(){
+
+const response = await fetch(API_URL);
+
+const data = await response.json();
+
+document.getElementById("total").innerText = data.length;
+
+const labels = data.map(row => row.Name || "No Name");
+
+const values = data.map(row => Number(row.Count) || 0);
+
+new Chart(document.getElementById("chart"), {
+
+type: "bar",
+
+data: {
+labels: labels,
+datasets: [{
+label: "Count",
+data: values
+}]
+}
+
+});
+
+}
+
+loadData();
+
+</script>
+
+</body>
+</html>
