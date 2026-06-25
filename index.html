@@ -447,9 +447,8 @@
 
 <script>
   // ── CONFIG ──────────────────────────────────────────────────────────
-  const SHEET_ID = '18kCN40lmNWry0aMnnXeg-l5eKOfwS6uDApOQtga9-Lk';
-  const GID      = '2128295653';
-  const CSV_URL  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
+  const CSV_URL =
+  'https://docs.google.com/spreadsheets/d/e/2PACX-1vSWW7muoNyeY_1VOLhybuT7ChNHtkhAscxDikyiCPQChIWqi1m3KXsd9e0_i_UFE7bDrW_7kfH-vIhL/pub?gid=2128295653&single=true&output=csv';
   const PAGE_SIZE = 50;
 
   // ── STATE ────────────────────────────────────────────────────────────
@@ -470,10 +469,17 @@
 
     try {
       // Use allorigins as CORS proxy
-      const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(CSV_URL)}`;
-      const res   = await fetch(proxy);
-      if (!res.ok) throw new Error('Network error ' + res.status);
-      const text  = await res.text();
+const res = await fetch(CSV_URL);
+
+if (!res.ok) {
+  throw new Error(`HTTP Error: ${res.status}`);
+}
+
+const text = await res.text();
+
+if (!text || text.trim().length === 0) {
+  throw new Error('CSV is empty');
+}
       allRows     = parseCSV(text);
       document.getElementById('lastRefresh').textContent =
         'Updated ' + new Date().toLocaleTimeString();
