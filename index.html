@@ -417,10 +417,10 @@ if (!text || text.trim().length === 0) {
   // ── BREAKDOWN TABLES ─────────────────────────────────────────────────
   function updateBreakdowns() {
     buildBreakdown('tableLoginUser', 'loginUser');
-    buildBreakdown('tableQCUser',    'qcUser');
-    buildBreakdown('tableEditUser',  'editUser');
+    buildBreakdown('tableQCUser', 'qcUser');
+    buildTopQCUsers();
     buildStatusBreakdown();
-  }
+}
 
   function buildBreakdown(tbodyId, field) {
     const map = {};
