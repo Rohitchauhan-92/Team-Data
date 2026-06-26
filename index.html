@@ -419,7 +419,13 @@ if (!text || text.trim().length === 0) {
       const key = r[field] || '(blank)';
       if (!map[key]) map[key] = { total: 0, issues: 0, done: 0 };
       map[key].total++;
-      if (r.issue.trim()) map[key].issues++;
+      if (
+    r.submitIssue &&
+    r.submitIssue.trim() !== '' &&
+    r.submitIssue.trim().toLowerCase() !== 'done'
+) {
+    map[key].issues++;
+}
       if (r.submitIssue.trim().toLowerCase() === 'done') map[key].done++;
     });
     const sorted = Object.entries(map).sort((a,b) => b[1].total - a[1].total);
