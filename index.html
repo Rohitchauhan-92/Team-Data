@@ -266,6 +266,24 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
 </div>
 
 <div class="table-card">
+  <div class="table-card-header">Top 10 Enterprises (Highest Submit Issues)</div>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Enterprise</th>
+          <th>Submit Issues</th>
+          <th>Total Images</th>
+          <th>Issue Rate</th>
+        </tr>
+      </thead>
+      <tbody id="tableTopEnterprise"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="table-card">
   <div class="table-card-header">By Submit Issue Status</div>
   <div class="table-scroll">
     <table>
@@ -491,6 +509,7 @@ if (!text || text.trim().length === 0) {
     buildBreakdown('tableLoginUser', 'loginUser');
     buildBreakdown('tableQCUser', 'qcUser');
     buildTopQCUsers();
+    buildTopEnterprises();
     buildStatusBreakdown();
 }
 
@@ -578,7 +597,38 @@ function buildTopQCUsers() {
         `).join("");
 
 }
-  // ── MAIN TABLE ───────────────────────────────────────────────────────
+function buildTopEnterprises() {
+    const map = {};
+    filteredRows.forEach(r => {
+        const ent = (r.enterprise || '').trim() || 'N/A';
+        if (!map[ent]) map[ent] = { issues: 0, total: 0 };
+        map[ent].total++;
+        const status = (r.submitIssue || '').trim().toLowerCase();
+        if (status !== '' && status !== 'done') {
+            map[ent].issues++;
+        }
+    });
+    const rows = Object.entries(map)
+        .sort((a, b) => b[1].issues - a[1].issues)
+        .slice(0, 10);
+    const max = rows.length ? rows[0][1].issues : 1;
+    document.getElementById('tableTopEnterprise').innerHTML =
+        rows.map(([ent, v], i) => `
+            <tr>
+                <td class="mono" style="color:var(--accent);font-weight:700;">${i+1}</td>
+                <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(ent)}">${escHtml(ent)}</td>
+                <td>
+                    <div class="bar-wrap">
+                        <div class="bar" style="width:${Math.max(4,(v.issues/max)*110)}px;background:var(--danger);"></div>
+                        <span class="bar-val" style="color:var(--danger);font-weight:600;">${v.issues}</span>
+                    </div>
+                </td>
+                <td class="mono">${v.total}</td>
+                <td class="mono">${v.total ? ((v.issues/v.total)*100).toFixed(1)+'%' : '—'}</td>
+            </tr>
+        `).join('');
+}
+
   function renderTable() {
     const start = (currentPage - 1) * PAGE_SIZE;
     const page  = filteredRows.slice(start, start + PAGE_SIZE);
@@ -733,22 +783,39 @@ function buildTopQCUsers() {
       const date = new Date(calViewYear, calViewMonth, d);
       const btn  = document.createElement('button');
       btn.textContent = d;
-      btn.style.cssText = 'width:100%;height:32px;border:none;border-radius:6px;font-size:0.8rem;cursor:pointer;font-family:var(--sans);transition:background .1s;';
+      btn.dataset.ts = date.getTime(); // store timestamp for reliable reference
+      btn.style.cssText = 'width:100%;height:32px;border:none;border-radius:6px;font-size:0.8rem;cursor:pointer;font-family:var(--sans);transition:background .15s,color .15s;';
       styleCalDay(btn, date);
-      btn.onclick = () => {
-        if(!calSelStart || (calSelStart && calSelEnd)) {
-          calSelStart = date; calSelEnd = null;
-        } else {
-          if(date < calSelStart) { calSelEnd=calSelStart; calSelStart=date; }
-          else { calSelEnd = date; }
-        }
-        updateCalRangeText();
-        renderCal();
-      };
-      btn.onmouseover = () => { calHover=date; renderCal(); };
-      btn.onmouseout  = () => { calHover=null; renderCal(); };
+      btn.addEventListener('click', (function(capturedDate) {
+        return function(e) {
+          e.stopPropagation();
+          if(!calSelStart || (calSelStart && calSelEnd)) {
+            calSelStart = new Date(capturedDate); calSelEnd = null;
+          } else {
+            if(capturedDate < calSelStart) { calSelEnd=new Date(calSelStart); calSelStart=new Date(capturedDate); }
+            else { calSelEnd = new Date(capturedDate); }
+          }
+          calHover = null;
+          updateCalRangeText();
+          restyleAllCalDays();
+        };
+      })(date));
+      btn.addEventListener('mouseover', (function(capturedDate) {
+        return function() { calHover=new Date(capturedDate); restyleAllCalDays(); };
+      })(date));
+      btn.addEventListener('mouseout', function() { calHover=null; restyleAllCalDays(); });
       grid.appendChild(btn);
     }
+  }
+
+  function restyleAllCalDays() {
+    const grid = document.getElementById('calGrid');
+    if (!grid) return;
+    const btns = grid.querySelectorAll('button[data-ts]');
+    btns.forEach(btn => {
+      const date = new Date(parseInt(btn.dataset.ts));
+      styleCalDay(btn, date);
+    });
   }
   function styleCalDay(btn, date) {
     const inRange = isInRange(date);
