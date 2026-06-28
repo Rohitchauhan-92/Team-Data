@@ -261,9 +261,9 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
 
 <div class="table-card">
   <div class="table-card-header">By QC User</div>
-  <div class="table-scroll">
+  <div class="table-scroll" style="max-height:320px;overflow-y:auto;">
     <table>
-      <thead><tr><th>QC User</th><th>Images</th><th>Issues</th><th>Done</th></tr></thead>
+      <thead style="position:sticky;top:0;z-index:2;"><tr><th>QC User</th><th>Images</th><th>Issues</th><th>Done</th></tr></thead>
       <tbody id="tableQCUser"></tbody>
     </table>
   </div>
@@ -532,9 +532,6 @@ if (!text || text.trim().length === 0) {
     buildStatusBreakdown();
 }
 
-  // Track expanded state per table
-  const drillState = {};
-
   function buildBreakdown(tbodyId, field) {
     const map = {};
     filteredRows.forEach(r => {
@@ -553,53 +550,23 @@ if (!text || text.trim().length === 0) {
     const sorted = Object.entries(map).sort((a,b) => b[1].total - a[1].total);
     const maxTotal = sorted[0]?.[1].total || 1;
     const tbody = document.getElementById(tbodyId);
-    const DRILL_LIMIT = 10;
-    const isDrillable = tbodyId === 'tableQCUser' && sorted.length > DRILL_LIMIT;
-    const expanded = drillState[tbodyId] || false;
+    tbody.innerHTML = sorted.map(([key, v]) => `
+      <tr>
+        <td>${escHtml(key)}</td>
+        <td>
+          <div class="bar-wrap">
+            <div class="bar" style="width:${Math.max(4, (v.total/maxTotal)*120)}px"></div>
+            <span class="bar-val">${v.total}</span>
+          </div>
+        </td>
+        <td class="mono">${v.issues}</td>
+        <td><span class="pill ${v.done===v.total?'pill-done':'pill-other'}">${v.done}</span></td>
+      </tr>`).join('');
 
-    const rowsHtml = sorted.map(([key, v], i) => {
-      const isHidden = isDrillable && i >= DRILL_LIMIT;
-      return `
-        <tr class="${isHidden ? 'drill-row' + (expanded ? ' visible' : '') : ''}">
-          <td>${escHtml(key)}</td>
-          <td>
-            <div class="bar-wrap">
-              <div class="bar" style="width:${Math.max(4, (v.total/maxTotal)*120)}px"></div>
-              <span class="bar-val">${v.total}</span>
-            </div>
-          </td>
-          <td class="mono">${v.issues}</td>
-          <td><span class="pill ${v.done===v.total?'pill-done':'pill-other'}">${v.done}</span></td>
-        </tr>`;
-    }).join('');
-
-    tbody.innerHTML = rowsHtml;
-
-    // Remove old drill button if exists, add fresh one
+    // Remove any leftover drill-down button
     const card = tbody.closest('.table-card');
-    const existing = card.querySelector('.btn-drilldown');
+    const existing = card && card.querySelector('.btn-drilldown');
     if (existing) existing.remove();
-
-    if (isDrillable) {
-      const hiddenCount = sorted.length - DRILL_LIMIT;
-      const btn = document.createElement('button');
-      btn.className = 'btn-drilldown' + (expanded ? ' expanded' : '');
-      btn.innerHTML = `
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-        <span class="drill-label">${expanded ? 'Show Less' : 'Show ' + hiddenCount + ' More Users'}</span>
-        <span class="drill-count-badge">${sorted.length} total</span>`;
-      btn.onclick = function() {
-        const isNowExpanded = !drillState[tbodyId];
-        drillState[tbodyId] = isNowExpanded;
-        const rows = tbody.querySelectorAll('.drill-row');
-        rows.forEach(r => r.classList.toggle('visible', isNowExpanded));
-        btn.classList.toggle('expanded', isNowExpanded);
-        btn.querySelector('.drill-label').textContent = isNowExpanded
-          ? 'Show Less'
-          : 'Show ' + hiddenCount + ' More Users';
-      };
-      card.appendChild(btn);
-    }
   }
 
   function buildStatusBreakdown() {
