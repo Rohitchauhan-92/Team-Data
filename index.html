@@ -68,6 +68,25 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
 
 /* ── MAIN DATA TABLE ── */.main-table-card {background: var(--surface);border: 1px solid var(--border);border-radius: 12px;overflow: hidden;margin-bottom: 28px;}.main-table-header {padding: 14px 18px;border-bottom: 1px solid var(--border);display: flex;align-items: center;justify-content: space-between;}.main-table-header span { font-size: 0.82rem; font-weight: 600; }#rowCount { font-size: 0.72rem; color: var(--muted); font-family: var(--mono); }.main-table-scroll { overflow-x: auto; max-height: 480px; overflow-y: auto; }.main-table-scroll thead th { position: sticky; top: 0; z-index: 2; }
 
+/* ── DRILL-DOWN ── */
+.drill-row { display: none; }
+.drill-row.visible { display: table-row; }
+.btn-drilldown {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; padding: 9px 0; background: var(--surface2);
+  border: none; border-top: 1px solid var(--border);
+  color: var(--accent); font-size: 0.75rem; font-weight: 600;
+  cursor: pointer; font-family: var(--sans); letter-spacing: .03em;
+  transition: background .15s, color .15s;
+}
+.btn-drilldown:hover { background: rgba(108,99,255,.1); }
+.btn-drilldown svg { transition: transform .25s; }
+.btn-drilldown.expanded svg { transform: rotate(180deg); }
+.drill-count-badge {
+  background: var(--accent); color: #fff;
+  border-radius: 20px; padding: 1px 7px; font-size: 0.68rem; font-weight: 700;
+}
+
 /* loading / error */.loader {display: flex;align-items: center;justify-content: center;padding: 60px;gap: 14px;color: var(--muted);font-size: 0.85rem;}.spinner {width: 20px; height: 20px;border: 2px solid var(--border);border-top-color: var(--accent);border-radius: 50%;animation: spin .7s linear infinite;}@keyframes spin { to { transform: rotate(360deg); } }.error-msg { color: var(--danger); text-align: center; padding: 40px; font-size: .85rem; }
 
 /* pagination */.pagination {display: flex;align-items: center;justify-content: flex-end;gap: 8px;padding: 12px 18px;border-top: 1px solid var(--border);}.btn-page {background: var(--surface2);border: 1px solid var(--border);color: var(--text);padding: 5px 12px;border-radius: 6px;font-size: 0.78rem;cursor: pointer;font-family: var(--sans);transition: border-color .15s;}.btn-page:hover() { border-color: var(--accent); }.btn-page { opacity: .3; cursor: default; }.page-info { font-size: 0.75rem; color: var(--muted); font-family: var(--mono); }
@@ -513,6 +532,9 @@ if (!text || text.trim().length === 0) {
     buildStatusBreakdown();
 }
 
+  // Track expanded state per table
+  const drillState = {};
+
   function buildBreakdown(tbodyId, field) {
     const map = {};
     filteredRows.forEach(r => {
@@ -520,29 +542,64 @@ if (!text || text.trim().length === 0) {
       if (!map[key]) map[key] = { total: 0, issues: 0, done: 0 };
       map[key].total++;
       if (
-    r.submitIssue &&
-    r.submitIssue.trim() !== '' &&
-    r.submitIssue.trim().toLowerCase() !== 'done'
-) {
-    map[key].issues++;
-}
+        r.submitIssue &&
+        r.submitIssue.trim() !== '' &&
+        r.submitIssue.trim().toLowerCase() !== 'done'
+      ) {
+        map[key].issues++;
+      }
       if (r.submitIssue.trim().toLowerCase() === 'done') map[key].done++;
     });
     const sorted = Object.entries(map).sort((a,b) => b[1].total - a[1].total);
     const maxTotal = sorted[0]?.[1].total || 1;
     const tbody = document.getElementById(tbodyId);
-    tbody.innerHTML = sorted.map(([key, v]) => `
-      <tr>
-        <td>${escHtml(key)}</td>
-        <td>
-          <div class="bar-wrap">
-            <div class="bar" style="width:${Math.max(4, (v.total/maxTotal)*120)}px"></div>
-            <span class="bar-val">${v.total}</span>
-          </div>
-        </td>
-        <td class="mono">${v.issues}</td>
-        <td><span class="pill ${v.done===v.total?'pill-done':'pill-other'}">${v.done}</span></td>
-      </tr>`).join('');
+    const DRILL_LIMIT = 10;
+    const isDrillable = tbodyId === 'tableQCUser' && sorted.length > DRILL_LIMIT;
+    const expanded = drillState[tbodyId] || false;
+
+    const rowsHtml = sorted.map(([key, v], i) => {
+      const isHidden = isDrillable && i >= DRILL_LIMIT;
+      return `
+        <tr class="${isHidden ? 'drill-row' + (expanded ? ' visible' : '') : ''}">
+          <td>${escHtml(key)}</td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar" style="width:${Math.max(4, (v.total/maxTotal)*120)}px"></div>
+              <span class="bar-val">${v.total}</span>
+            </div>
+          </td>
+          <td class="mono">${v.issues}</td>
+          <td><span class="pill ${v.done===v.total?'pill-done':'pill-other'}">${v.done}</span></td>
+        </tr>`;
+    }).join('');
+
+    tbody.innerHTML = rowsHtml;
+
+    // Remove old drill button if exists, add fresh one
+    const card = tbody.closest('.table-card');
+    const existing = card.querySelector('.btn-drilldown');
+    if (existing) existing.remove();
+
+    if (isDrillable) {
+      const hiddenCount = sorted.length - DRILL_LIMIT;
+      const btn = document.createElement('button');
+      btn.className = 'btn-drilldown' + (expanded ? ' expanded' : '');
+      btn.innerHTML = `
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        <span class="drill-label">${expanded ? 'Show Less' : 'Show ' + hiddenCount + ' More Users'}</span>
+        <span class="drill-count-badge">${sorted.length} total</span>`;
+      btn.onclick = function() {
+        const isNowExpanded = !drillState[tbodyId];
+        drillState[tbodyId] = isNowExpanded;
+        const rows = tbody.querySelectorAll('.drill-row');
+        rows.forEach(r => r.classList.toggle('visible', isNowExpanded));
+        btn.classList.toggle('expanded', isNowExpanded);
+        btn.querySelector('.drill-label').textContent = isNowExpanded
+          ? 'Show Less'
+          : 'Show ' + hiddenCount + ' More Users';
+      };
+      card.appendChild(btn);
+    }
   }
 
   function buildStatusBreakdown() {
