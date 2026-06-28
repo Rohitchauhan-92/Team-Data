@@ -285,16 +285,16 @@ body {font-family: var(--sans);background: var(--bg);color: var(--text);min-heig
 </div>
 
 <div class="table-card">
-  <div class="table-card-header">Top 10 Enterprises (Highest Issue Rate)</div>
+  <div class="table-card-header">Top 10 Enterprises (Highest Submit Issues)</div>
   <div class="table-scroll">
     <table>
       <thead>
         <tr>
           <th>#</th>
           <th>Enterprise</th>
-          <th>Issue Rate</th>
           <th>Submit Issues</th>
           <th>Total Images</th>
+          <th>Issue Rate</th>
         </tr>
       </thead>
       <tbody id="tableTopEnterprise"></tbody>
@@ -633,23 +633,22 @@ function buildTopEnterprises() {
         }
     });
     const rows = Object.entries(map)
-        .map(([ent, v]) => ({ ent, ...v, rate: v.total ? v.issues / v.total : 0 }))
-        .sort((a, b) => b.rate - a.rate)
+        .sort((a, b) => b[1].issues - a[1].issues)
         .slice(0, 10);
-    const maxRate = rows.length ? rows[0].rate : 1;
+    const max = rows.length ? rows[0][1].issues : 1;
     document.getElementById('tableTopEnterprise').innerHTML =
-        rows.map((v, i) => `
+        rows.map(([ent, v], i) => `
             <tr>
                 <td class="mono" style="color:var(--accent);font-weight:700;">${i+1}</td>
-                <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(v.ent)}">${escHtml(v.ent)}</td>
+                <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(ent)}">${escHtml(ent)}</td>
                 <td>
                     <div class="bar-wrap">
-                        <div class="bar" style="width:${Math.max(4,(v.rate/maxRate)*110)}px;background:var(--danger);"></div>
-                        <span class="bar-val" style="color:var(--danger);font-weight:600;">${v.total ? (v.rate*100).toFixed(1)+'%' : '—'}</span>
+                        <div class="bar" style="width:${Math.max(4,(v.issues/max)*110)}px;background:var(--danger);"></div>
+                        <span class="bar-val" style="color:var(--danger);font-weight:600;">${v.issues}</span>
                     </div>
                 </td>
-                <td class="mono">${v.issues}</td>
                 <td class="mono">${v.total}</td>
+                <td class="mono">${v.total ? ((v.issues/v.total)*100).toFixed(1)+'%' : '—'}</td>
             </tr>
         `).join('');
 }
