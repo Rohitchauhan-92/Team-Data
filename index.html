@@ -449,8 +449,12 @@ if (!text || text.trim().length === 0) {
   }
 
   function fmt(d) {
+    // Use local date parts to avoid UTC/IST shift when grouping by day
     if (!d) return '';
-    return d.toISOString().slice(0,10);
+    const yy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return yy+'-'+mm+'-'+dd;
   }
 
   // ── FILTERS ──────────────────────────────────────────────────────────
@@ -742,12 +746,26 @@ function buildTopEnterprises() {
       .replace(/"/g,'&quot;');
   }
 
+  // ── IST-SAFE DATE HELPERS ───────────────────────────────────────────
+  // Always use LOCAL date parts — never .toISOString() which shifts to UTC
+  function toLocalDateStr(d) {
+    if (!d) return '';
+    const yy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yy}-${mm}-${dd}`;
+  }
+  function setDateInputs(s, e) {
+    document.getElementById('dateFrom').value = s ? toLocalDateStr(s) : '';
+    document.getElementById('dateTo').value   = e ? toLocalDateStr(e) : '';
+  }
+
   // ── DATE RANGE PICKER ────────────────────────────────────────────────
   const QUICK_PRESETS = [
-    { label: 'Today',      fn: () => { const d=new Date(); return [d,d]; } },
-    { label: 'Yesterday',  fn: () => { const d=new Date(); d.setDate(d.getDate()-1); return [d,d]; } },
-    { label: 'Last 7 days',fn: () => { const e=new Date(),s=new Date(); s.setDate(s.getDate()-6); return [s,e]; } },
-    { label: 'Last 30 days',fn:() => { const e=new Date(),s=new Date(); s.setDate(s.getDate()-29); return [s,e]; } },
+    { label: 'Today',       fn: () => { const d=new Date(); return [d,d]; } },
+    { label: 'Yesterday',   fn: () => { const d=new Date(); d.setDate(d.getDate()-1); return [d,d]; } },
+    { label: 'Last 7 days', fn: () => { const e=new Date(),s=new Date(); s.setDate(s.getDate()-6); return [s,e]; } },
+    { label: 'Last 30 days',fn: () => { const e=new Date(),s=new Date(); s.setDate(s.getDate()-29); return [s,e]; } },
   ];
   const MONTH_PRESETS = [
     { label: 'This month',   fn: () => { const n=new Date(); return [new Date(n.getFullYear(),n.getMonth(),1),new Date(n.getFullYear(),n.getMonth()+1,0)]; } },
@@ -895,11 +913,9 @@ const from = start <= end ? start : end;
 
 const to = start <= end ? end : start;
 
-// Save values to hidden inputs
+// Save values to hidden inputs (use local date string to avoid UTC/IST shift)
 
-document.getElementById('dateFrom').value = from.toISOString().split('T')[0];
-
-document.getElementById('dateTo').value = to.toISOString().split('T')[0];
+setDateInputs(from, to);
 
 // Update labels
 
@@ -924,9 +940,8 @@ closeDatePicker();
 }
 
   function setRange(s, e, label) {
-    const fmt3 = d => d ? d.toISOString().slice(0,10) : '';
-    document.getElementById('dateFrom').value = fmt3(s);
-    document.getElementById('dateTo').value   = fmt3(e);
+    // Use local date string — toISOString() shifts to UTC and breaks IST filters
+    setDateInputs(s, e);
     document.getElementById('dateRangeLabel').textContent = label || 'Custom range';
     // update header chip
     const chipLabel = s && e
@@ -965,9 +980,8 @@ closeDatePicker();
   // init picker lists & default 30-day range
   buildQuickLists();
   (function(){
-    const e=new Date(),s=new Date(); s.setDate(s.getDate()-29);
-    document.getElementById('dateFrom').value = s.toISOString().slice(0,10);
-    document.getElementById('dateTo').value   = e.toISOString().slice(0,10);
+    const e=new Date(), s=new Date(); s.setDate(s.getDate()-29);
+    setDateInputs(s, e); // use local date string — avoids UTC/IST date shift
     highlightPreset('Last 30 days');
   })();
 
